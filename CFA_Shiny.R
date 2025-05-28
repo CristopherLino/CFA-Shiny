@@ -20,6 +20,8 @@ library(PsyMetricTools)
 library(ThesiStats)
 library(MVN)
 library(dplyr)
+library(ggpubr)
+library(labelled)
 
 ui <- navbarPage(
   title = "CFA Shiny",
