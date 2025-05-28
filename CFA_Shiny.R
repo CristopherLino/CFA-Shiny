@@ -17,6 +17,9 @@ library(semPlot)
 library(semTools)
 library(BifactorIndicesCalculator)
 library(PsyMetricTools)
+library(ThesiStats)
+library(MVN)
+library(dplyr)
 
 ui <- navbarPage(
   title = "CFA Shiny",
@@ -25,35 +28,47 @@ ui <- navbarPage(
   # 1. Introducción
   tabPanel("Introducción",
            fluidPage(
-             h2("👋 ¡Bienvenido a CFA-Shiny!"),
-             HTML('
-             <p><strong>CFA-Shiny</strong> es una aplicación Shiny diseñada para realizar <strong>Análisis Factorial Confirmatorio (CFA)</strong> utilizando el paquete <code>lavaan</code>. Esta herramienta permite especificar, visualizar y validar modelos de medida de manera flexible.</p>
-
-             <h4>¿Qué puedes hacer con CFA-Shiny?</h4>
-             <ul>
-               <li><strong>Importación de datos:</strong> Importa archivos en formato <code>.csv</code> o <code>.xlsx</code> fácilmente.</li>
-               <li><strong>Análisis de ítems:</strong> Obtén estadísticas descriptivas de los ítems y visualiza la distribución de respuestas con gráficos tipo Likert.</li>
-               <li><strong>Especificación de modelos:</strong> Define tu modelo CFA usando sintaxis de <code>lavaan</code>.</li>
-               <li><strong>Ajueste del modelo:</strong> Obtén estimaciones estandarizadas, índices de ajuste e índices de modificación.</li>
-               <li><strong>Visualización del modelo:</strong> Visualiza tu modelo CFA con <code>semPlot</code>.</li>
-               <li><strong>Fiabilidad:</strong> Calcula índices de consistencia interna como el <strong>Omega</strong>.</li>
-               <li><strong>Evaluación bootstrap:</strong> Evalúa la estabilidad del ajuste mediante remuestreo.</li>
-               <li><strong>Validez convergente:</strong> Analiza relaciones con variables externas.</li>
-             </ul>
-
-             <p style="color:#a94442; font-weight:bold;">
-             ⚠️ Para analizar modelos con ítems ordinales (por ejemplo, escalas tipo Likert), debes especificar que los ítems son "ordenados" y seleccionar un estimador adecuado como <code>WLSMV</code>
-             </p>
-             <p style="color:#a94442; font-weight:bold;">
-             ⚠️ Asegúrate de indicar el prefijo común de los ítems de la escala que vas a analizar (por ejemplo, <code>BFI</code>, <code>EPAS</code>, etc.). Este prefijo permite identificar correctamente las variables de interés.
-             </p>
-             <p style="color:#a94442; font-weight:bold;">
-             ⚠️ La base de datos que vas a incoporar debe tener solo ítems, tanto de la escala que vas a analizar como de la variable externa que utilizarás para evaluar la validez basada en la relación con otra variable.
-             </p>
-
-           ')
+             h2(HTML("👋 <strong>¡Bienvenido a CFA-Shiny!</strong>")),
+             
+             p(HTML('<strong>CFA-Shiny</strong> es una aplicación Shiny diseñada para realizar <strong>Análisis Factorial Confirmatorio (CFA)</strong> utilizando el paquete <code>lavaan</code>. Esta herramienta permite especificar, visualizar y validar modelos de medida de manera flexible.')),
+             
+             # Funcionalidades
+             fluidRow(
+               box(
+                 title = "¿Qué puedes hacer con CFA-Shiny?", width = 12, status = "primary", solidHeader = TRUE,
+                 HTML('
+          <ul>
+            <li><strong>Importación de datos:</strong> Importa archivos en formato <code>.csv</code> o <code>.xlsx</code> fácilmente.</li>
+            <li><strong>Análisis de ítems:</strong> Obtén estadísticas descriptivas, visualiza la distribución de respuestas con gráficos tipo Likert y analiza la normalidad.</li>
+            <li><strong>Especificación de modelos:</strong> Define tu modelo CFA usando sintaxis de <code>lavaan</code>.</li>
+            <li><strong>Ajuste del modelo:</strong> Obtén estimaciones estandarizadas, índices de ajuste e índices de modificación.</li>
+            <li><strong>Visualización del modelo:</strong> Visualiza tu modelo CFA con <code>semPlot</code>.</li>
+            <li><strong>Fiabilidad:</strong> Calcula la confiabilidad por consistencia interna con el coeficiente <strong>Omega</strong>. Para modelos bifactor, se calculan índices específicos.</li>
+            <li><strong>Evaluación bootstrap:</strong> Evalúa la estabilidad de los índices de ajuste mediante remuestreo.</li>
+            <li><strong>Validez convergente:</strong> Analiza relaciones con variables externas.</li>
+          </ul>
+        ')
+               )
+             ),
+             
+             # Recomendaciones
+             fluidRow(
+               box(
+                 title = "Recomendaciones importantes", width = 12, status = "warning", solidHeader = TRUE,
+                 HTML('
+          <ul>
+            <li style="color:#a94442; font-weight:bold;">
+              ⚠️ Para analizar modelos con ítems ordinales (por ejemplo, escalas tipo Likert), debes especificar que los ítems son "ordenados" y seleccionar un estimador adecuado como <code>WLSMV</code>.
+            </li>
+            <li><strong>Asegúrate de indicar el prefijo común de los ítems de la escala que vas a analizar</strong> (por ejemplo, <code>BFI</code>). Este prefijo permite identificar correctamente las variables de interés.</li>
+            <li><strong>La base de datos que vas a incorporar debe contener solo ítems</strong>, tanto de la escala que vas a analizar como de la variable externa para evaluar la validez convergente.</li>
+          </ul>
+        ')
+               )
+             )
            )
   ),
+  
   
   # 2. Data Input
   tabPanel("Data Input",
@@ -61,7 +76,7 @@ ui <- navbarPage(
              sidebarPanel(
                fileInput("file", "Upload .csv or .xlsx file"),
                checkboxInput("ordered", "¿Los ítems son ordinales?", TRUE),
-               textInput("prefixItems", "Prefijo del ítem", "BFI"),
+               textInput("prefixItems", "Prefijo del ítem", ""),
                actionButton("load", "Load Data")
              ),
              mainPanel(
@@ -73,6 +88,7 @@ ui <- navbarPage(
   # 3. Item Analysis
   tabPanel("Item Analysis",
            tabsetPanel(
+             
              tabPanel("Descriptives", 
                       box(title = "Descriptive Statistics", width = 12, status = "info", solidHeader = TRUE,
                           DT::dataTableOutput("descTable"),
@@ -82,18 +98,67 @@ ui <- navbarPage(
              ),
              
              tabPanel("Likert Plot", 
-                      box(title = "Likert Response Plot", width = 12, status = "primary", solidHeader = TRUE,
-                          plotOutput("likertPlot"),
-                          br(),
-                          h5("Download Settings"),
-                          numericInput("likertWidth",  "Width (inches):",  8),
-                          numericInput("likertHeight", "Height (inches):", 6),
-                          numericInput("likertDPI",    "Resolution (dpi):", 300),
-                          downloadBttn("download_likert", "Download Likert Plot", style = "jelly", color = "success")
+                      fluidRow(
+                        column(
+                          width = 8,
+                          box(title = "Likert Response Plot", width = 12, status = "primary", solidHeader = TRUE,
+                              plotOutput("likertPlot", height = "600px")
+                          )
+                        ),
+                        column(
+                          width = 4,
+                          box(title = "Opciones de descarga", width = 12, status = "info", solidHeader = TRUE,
+                              h5("Download Settings"),
+                              numericInput("likertWidth",  "Width (inches):",  8),
+                              numericInput("likertHeight", "Height (inches):", 6),
+                              numericInput("likertDPI",    "Resolution (dpi):", 300),
+                              downloadBttn("download_likert", "Download Likert Plot", style = "jelly", color = "success")
+                          )
+                        )
+                      )
+             ),
+             
+             tabPanel("Multivariate Normality", 
+                      fluidRow(
+                        column(
+                          width = 4,
+                          box(title = "Mardia Multivariate Test", width = 12, status = "warning", solidHeader = TRUE,
+                              verbatimTextOutput("mardiaTest"),
+                              numericInput("xmin", "X min:", 30),
+                              numericInput("xmax", "X max:", 40),
+                              numericInput("ymin", "Y min:", 5),
+                              numericInput("ymax", "Y max:", 10)
+                          )
+                        ),
+                        column(
+                          width = 8,
+                          box(title = "Mardia Q-Q Plot", width = 12, status = "primary", solidHeader = TRUE,
+                              plotOutput("mardiaPlot", height = "500px")
+                          )
+                        )
+                      )
+             ),
+             
+             tabPanel("Univariate Normality", 
+                      fluidRow(
+                        column(
+                          width = 6,
+                          box(title = "QQ Plot por ítem", width = 12, status = "primary", solidHeader = TRUE,
+                              plotOutput("qqPlot", height = "800px")
+                          )
+                        ),
+                        column(
+                          width = 6,
+                          box(title = "Histograma por ítem", width = 12, status = "success", solidHeader = TRUE,
+                              plotOutput("histPlot", height = "800px")
+                          )
+                        )
                       )
              )
+             
            )
   ),
+  
   
   # 4. Model Fit
   tabPanel("Model Fit",
@@ -135,7 +200,7 @@ ui <- navbarPage(
                numericInput("plot_width", "Plot Width (inches):", 10),
                numericInput("plot_height", "Plot Height (inches):", 6),
                numericInput("plot_dpi", "Resolution (dpi):", 300),
-               downloadButton("download_cfa_plot", "Download Plot")
+               downloadBttn("download_cfa_plot", "Download Plot", style = "jelly", color = "success")
              )
            )
   ),
@@ -147,8 +212,25 @@ ui <- navbarPage(
                       tableOutput("omegaTable")
              ),
              tabPanel("Bifactor Indices",
-                      helpText("Available only for bifactor models."),
-                      tableOutput("bifactorIndices")
+                      fluidPage(
+                        helpText("Se muestran los índices del modelo bifactor si cumple con los criterios: cada ítem carga en un factor general y uno específico."),
+                        textInput("bifactorName", "Nombre del factor general", value = "FG"),
+                        br(),
+                        tabsetPanel(
+                          tabPanel("Índices Globales",
+                                   tableOutput("bifactorIndices")
+                          ),
+                          tabPanel("Nivel de Factores",
+                                   tableOutput("bifactorFactors")
+                          ),
+                          tabPanel("Nivel de Ítems",
+                                   tableOutput("bifactorItems")
+                          ),
+                          tabPanel("Guía de interpretación",
+                                   uiOutput("bifactorPuntosCorte")  # NUEVO
+                          )
+                        )
+                      )
              )
            )
   ),
@@ -174,7 +256,7 @@ ui <- navbarPage(
                numericInput("boot_plot_width", "Plot Width (inches)", 10),
                numericInput("boot_plot_height", "Plot Height (inches)", 6),
                numericInput("boot_plot_dpi", "Plot Resolution (dpi)", 300),
-               downloadButton("download_boot_plot", "Download Plot")
+               downloadBttn("download_boot_plot", "Download Plot", style = "jelly", color = "primary")
              )
            )
   ),
@@ -191,8 +273,7 @@ ui <- navbarPage(
                numericInput("valid_labelSize", "Label size", 0.7),
                numericInput("curve", "Curvature (curve)", value = 2, min = 0, max = 10, step = 0.1),
                textInput("valid_bifactorName", "Bifactor name (if any)", ""),
-               actionButton("runValid", "Run Validation"),
-               downloadButton("download_valid_plot", "Download Plot")
+               actionButton("runValid", "Run Validation")
              ),
              mainPanel(
                tabsetPanel(
@@ -203,17 +284,93 @@ ui <- navbarPage(
                           numericInput("valid_plot_width", "Plot Width (inches):", 10),
                           numericInput("valid_plot_height", "Plot Height (inches):", 6),
                           numericInput("valid_plot_dpi", "Resolution (dpi):", 300),
-                          downloadButton("download_valid_plot", "Download Plot")),
+                          downloadBttn("download_valid_plot", "Download Plot", style = "jelly", color = "success")),
                  tabPanel("Fit Measures", tableOutput("validityFit")),
                  tabPanel("Modification Indices", DT::DTOutput("validityMI"))
                )
              )
            )
-     )
+  ),
+  
+  #References
+  tabPanel("References",
+           fluidPage(
+             fluidRow(
+               column(
+                 width = 12,
+                 box(
+                   title = "How to Cite CFA-Shiny", width = 12, status = "success", solidHeader = TRUE,
+                   HTML('
+            <ul>
+              <li>Lino-Cruz, C. (2025). <em>CFA-Shiny: Aplicación interactiva en R para Análisis Factorial Confirmatorio</em> [Software]. GitHub. 
+      <a href="https://github.com/CristopherLino/CFA-Shiny" target="_blank">https://github.com/CristopherLino/CFA-Shiny</a></li>
+            </ul>
+            
+          ')
+                 )
+               )
+             ),
+             fluidRow(
+               column(
+                 width = 12,
+                 box(
+                   title = "Recommended References", width = 12, status = "info", solidHeader = TRUE,
+                   HTML('
+            <ul>
+              <li>Abad, F. J., Olea, J., Ponsoda, V., & García, C. (2011). <em>Medición en ciencias sociales y de la salud</em>. Madrid: Síntesis.</li>
+              <li>Brown, T. A. (2015). <em>Confirmatory factor analysis for applied research</em> (2nd ed.). The Guilford Press.</li>
+              <li>Hu, L.-t., & Bentler, P. M. (1999). Cutoff criteria for fit indexes in covariance structure analysis: Conventional criteria versus new alternatives. 
+                    <em>Structural Equation Modeling, 6</em>(1), 1–55. 
+                    <a href="https://doi.org/10.1080/10705519909540118" target="_blank">https://doi.org/10.1080/10705519909540118</a></li>
+                <li>Dominguez-Lara, S., & Rodriguez, A. (2017). Índices estadísticos de modelos bifactor. 
+                    <em>Interacciones, 3</em>(2), 59–65. 
+                    <a href="https://doi.org/10.24016/2017.v3n2.51" target="_blank">https://doi.org/10.24016/2017.v3n2.51</a></li>
+                <li>Rodriguez, A., Reise, S. P., & Haviland, M. G. (2016). Evaluating bifactor models: Calculating and interpreting statistical indices. 
+                    <em>Psychological Methods, 21</em>(2), 137–150. 
+                    <a href="https://doi.org/10.1037/met0000045" target="_blank">https://doi.org/10.1037/met0000045</a></li>
+                <li>Reise, S. P. (2012). The rediscovery of bifactor measurement models. 
+                    <em>Multivariate Behavioral Research, 47</em>(5), 667–696. 
+                    <a href="https://doi.org/10.1080/00273171.2012.715555" target="_blank">https://doi.org/10.1080/00273171.2012.715555</a></li>
+                <li>Shi, D., Maydeu-Olivares, A., & Rosseel, Y. (2019). Assessing fit in ordinal factor analysis models: SRMR vs. RMSEA. 
+                    <em>Structural Equation Modeling, 26</em>(3), 431–439. 
+                    <a href="https://doi.org/10.1080/10705511.2019.1611434" target="_blank">https://doi.org/10.1080/10705511.2019.1611434</a></li>
+
+            </ul>
+          ')
+                 )
+               )
+             ),
+             fluidRow(
+               column(
+                 width = 12,
+                 box(
+                   title = "R Packages Used", width = 12, status = "warning", solidHeader = TRUE,
+                   HTML('
+            <ul>
+              <li>Epskamp, S. (2022). semPlot: Path Diagrams and Visual Analysis of Various SEM Packages Output. 
+                    <a href="https://cran.r-project.org/package=semPlot" target="_blank">CRAN</a></li>
+                <li>Jorgensen, T. D., Pornprasertmanit, S., Schoemann, A. M., & Rosseel, Y. (2025). semTools: Useful tools for structural equation modeling. 
+                    <a href="https://cran.r-project.org/package=semTools" target="_blank">CRAN</a></li>
+                <li>Chang, W., Cheng, J., Allaire, J. J., Xie, Y., & McPherson, J. (2023). shiny: Web Application Framework for R. RStudio. 
+                    <a href="https://cran.r-project.org/package=shiny" target="_blank">CRAN</a></li>
+                <li>Ventura-León, J. (2024). <em>PsyMetricTools</em> [Software]. GitHub. 
+                    <a href="https://github.com/jventural/PsyMetricTools" target="_blank">https://github.com/jventural/PsyMetricTools</a></li>
+                <li>Ventura-León, J. (2024). <em>ThesiStats</em> [Software]. GitHub. 
+                    <a href="https://github.com/jventural/ThesiStats" target="_blank">https://github.com/jventural/ThesiStats</a></li>
+                    <li>Rosseel, Y. (2012). lavaan: Latent Variable Analysis. <em>Journal of Statistical Software, 48</em>(2), 1–36. 
+                    <a href="https://doi.org/10.18637/jss.v048.i02" target="_blank">https://doi.org/10.18637/jss.v048.i02</a></li>
+            </ul>
+          ')
+                 )
+               )
+             )
+           )
   )
+  
+)
 
 server <- function(input, output, session) {
-
+  
   # Leer la base cargada
   full_data <- reactive({
     req(input$file)
@@ -250,26 +407,6 @@ server <- function(input, output, session) {
     df <- full_data()
     prefix <- input$prefixItems
     df[, -grep(paste0("^", prefix), names(df))]
-  })
-  
-  # Ajustar modelo CFA con datos filtrados
-  cfaModel <- eventReactive(input$runCFA, {
-    req(input$modelText)
-    tryCatch({
-      cfa(input$modelText,
-          data = filtered_data(),
-          estimator = input$estimator,
-          ordered = if (input$ordered) TRUE else NULL)
-    }, error = function(e) {
-      showNotification(paste("Error in model:", e$message), type = "error")
-      NULL
-    })
-  })
-  
-  # Vista previa de datos
-  output$dataPreview <- DT::renderDT({
-    req(full_data())
-    datatable(full_data(), options = list(scrollX = TRUE))
   })
   
   # Tabla descriptiva
@@ -312,6 +449,70 @@ server <- function(input, output, session) {
     }
   )
   
+  # Normalidad multivariada (ThesiStats)
+  output$mardiaTest <- renderPrint({
+    req(filtered_data())
+    df <- filtered_data() %>%
+      dplyr::mutate(across(everything(), ~ as.numeric(as.character(.)))) %>%
+      na.omit()
+    ThesiStats::mardia_test(df)
+  })
+  
+  output$mardiaPlot <- renderPlot({
+    req(filtered_data(), input$xmin, input$xmax, input$ymin, input$ymax)
+    df <- filtered_data() %>%
+      dplyr::mutate(across(everything(), ~ as.numeric(as.character(.)))) %>%
+      na.omit()
+    print(ThesiStats::Multivariate_plot(
+      df,
+      xmin = input$xmin,
+      xmax = input$xmax,
+      ymin = input$ymin,
+      ymax = input$ymax
+    ))
+  })
+  
+  
+  # Normalidad univariada (MVN)
+  output$qqPlot <- renderPlot({
+    req(filtered_data())
+    df <- filtered_data() %>%
+      dplyr::mutate(across(everything(), ~ as.numeric(as.character(.)))) %>%
+      na.omit()
+    result <- MVN::mvn(data = df, mvnTest = "mardia", univariatePlot = "qqplot")
+    print(result$univariatePlots)
+  })
+  
+  output$histPlot <- renderPlot({
+    req(filtered_data())
+    df <- filtered_data() %>%
+      dplyr::mutate(across(everything(), ~ as.numeric(as.character(.)))) %>%
+      na.omit()
+    result <- MVN::mvn(data = df, mvnTest = "mardia", univariatePlot = "histogram")
+    print(result$univariatePlots)
+  })
+  
+  # Ajustar modelo CFA con datos filtrados
+  cfaModel <- eventReactive(input$runCFA, {
+    req(input$modelText)
+    tryCatch({
+      cfa(input$modelText,
+          data = filtered_data(),
+          estimator = input$estimator,
+          ordered = if (input$ordered) TRUE else NULL)
+    }, error = function(e) {
+      showNotification(paste("Error in model:", e$message), type = "error")
+      NULL
+    })
+  })
+  
+  # Vista previa de datos
+  output$dataPreview <- DT::renderDT({
+    req(full_data())
+    datatable(full_data(), options = list(scrollX = TRUE))
+  })
+  
+  
   # Summary del modelo
   output$summaryOut <- renderPrint({
     fit <- cfaModel()
@@ -353,6 +554,7 @@ server <- function(input, output, session) {
       `Value` = round(as.numeric(fm), 3)
     )
   })
+  
   
   # Descargar tabla
   output$download_fitmeasures <- downloadHandler(
@@ -497,8 +699,8 @@ server <- function(input, output, session) {
     # Obtener la matriz de cargas estandarizadas
     loadings <- inspect(fit, "std")$lambda
     
-    # Ver cuántos factores carga cada ítem
-    load_count <- rowSums(loadings != 0)
+    # ✅ Ver cuántos factores carga cada ítem con un umbral (evita ruido)
+    load_count <- rowSums(abs(loadings) > 0.20)
     
     # Criterios mínimos para bifactor
     is_candidate <- length(factors) > 1 &&
@@ -508,17 +710,71 @@ server <- function(input, output, session) {
     if (is_candidate) {
       tryCatch({
         bif_indices <- BifactorIndicesCalculator::bifactorIndices(fit)
-        round(bif_indices, 3)
+        round(bif_indices$ModelLevelIndices, 3)  # puedes cambiar aquí el nivel
       }, error = function(e) {
         data.frame(Error = paste("Error en cálculo:", e$message))
       })
     } else {
       data.frame(
         Mensaje = "Este modelo no cumple con los criterios estructurales para un modelo bifactor.",
-        Criterios = "Cada ítem debe cargar en un factor general y uno específico."
+        Criterios = "Cada ítem debe cargar en un factor general y uno específico con carga > .20."
       )
     }
   })
+  
+  # Bifactor output
+  output$bifactorItems <- renderTable({
+    req(cfaModel())
+    tryCatch({
+      round(BifactorIndicesCalculator::bifactorIndices(cfaModel())$ItemLevelIndices, 3)
+    }, error = function(e) {
+      data.frame(Error = e$message)
+    })
+  })
+  
+  output$bifactorFactors <- renderTable({
+    req(cfaModel())
+    tryCatch({
+      tabla <- round(BifactorIndicesCalculator::bifactorIndices(cfaModel())$FactorLevelIndices, 3)
+      data.frame(
+        Factor = rownames(tabla),  # convierte nombres de fila en columna
+        tabla,
+        row.names = NULL,
+        check.names = FALSE
+      )
+    }, error = function(e) {
+      data.frame(Error = e$message)
+    })
+  })
+  
+  # Puntos de corte bifactor
+  output$bifactorPuntosCorte <- renderUI({
+    tagList(
+      h4("Guía de interpretación de índices bifactor"),
+      tags$table(class = "table table-striped",
+                 tags$thead(
+                   tags$tr(
+                     tags$th("Nivel"), tags$th("Índice"), tags$th("Descripción"), tags$th("Punto de corte")
+                   )
+                 ),
+                 tags$tbody(
+                   # Nivel del modelo
+                   tags$tr(tags$td("Modelo"), tags$td("ECV (FG)"), tags$td("Varianza común explicada por el factor general (ECV_SS)"), tags$td("≥ .70 – .80")),
+                   tags$tr(tags$td("Modelo"), tags$td("OmegaH (FG)"), tags$td("Confiabilidad jerárquica del factor general"), tags$td("≥ .75 – .80")),
+                   
+                   # Nivel del factor
+                   tags$tr(tags$td("Factor"), tags$td("OmegaH"), tags$td("Confiabilidad jerárquica por factor específico"), tags$td("≥ .75")),
+                   tags$tr(tags$td("Factor"), tags$td("H"), tags$td("Replicabilidad de las puntuaciones del factor"), tags$td("≥ .70")),
+                   
+                   # Nivel del ítem
+                   tags$tr(tags$td("Ítem"), tags$td("IECV"), tags$td("Proporción de varianza del ítem explicada por el factor general"), tags$td("≥ .85"))
+                 )
+      ),
+      br(),
+      tags$em("Para una mejor comprensión, se recomienda consultar los trabajos de Rodriguez et al. (2016) y Domínguez-Lara y Rodríguez (2016). Los puntos de corte deben considerarse orientativos y no absolutos.")
+    )
+  })
+  
   
   # Bootstrapping
   boot_results <- eventReactive(input$run_boot, {
@@ -736,8 +992,6 @@ server <- function(input, output, session) {
       dev.off()
     }
   )
-} 
-
-shinyApp(ui, server)
+}  
 
 
