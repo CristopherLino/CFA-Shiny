@@ -1,3 +1,6 @@
 
 
-source("CFA_Shiny.R")
+source("CFA_Shiny.R")  
+
+shinyApp(ui = ui, server = server)  
+
