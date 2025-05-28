@@ -22,6 +22,12 @@ library(MVN)
 library(dplyr)
 library(ggpubr)
 library(labelled)
+library(wesanderson)
+library(purrr)
+library(reshape2)
+library(gridExtra)
+library(gtable)
+library(tidyr)
 
 ui <- navbarPage(
   title = "CFA Shiny",
