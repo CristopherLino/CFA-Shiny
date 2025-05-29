@@ -655,6 +655,12 @@ server <- function(input, output, session) {
     content = function(file) {
       req(cfaModel())
       
+      jpeg(filename = file, 
+           width = input$plot_width,
+           height = input$plot_height,
+           units = "in",
+           res = input$plot_dpi)
+      
       semPlot::semPaths(
         cfaModel(),
         what = "std",
@@ -674,14 +680,9 @@ server <- function(input, output, session) {
         label.cex = input$labelSize,
         mar = c(2, 7, 2, 7),
         style = "lisrel",
-        label.prop = 1,
+        label.prop = 1
       )
       
-      grDevices::dev.copy(jpeg, filename = file, 
-                          width = input$plot_width, 
-                          height = input$plot_height, 
-                          units = "in", 
-                          res = input$plot_dpi)
       dev.off()
     }
   )
