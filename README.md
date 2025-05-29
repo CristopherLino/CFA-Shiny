@@ -23,3 +23,9 @@ if (!requireNamespace("shiny", quietly = TRUE)) install.packages("shiny")
 if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
 shiny::runGitHub("CFA-Shiny", "CristopherLino")
 ```
+
+## Accede a la app
+
+Puedes usar la aplicación directamente desde tu navegador, sin necesidad de instalar nada, en el siguiente enlace:
+
+👉 [https://linocruz-cfa-app.shinyapps.io/cfa_shiny/](https://linocruz-cfa-app.shinyapps.io/cfa_shiny/)
