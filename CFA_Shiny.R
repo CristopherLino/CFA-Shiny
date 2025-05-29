@@ -1,6 +1,6 @@
 
 
-# CFA Shiny App - Estructura inicial inspirada en EFAShiny
+# CFA Shiny App 
 library(shiny)
 library(shinyWidgets)
 library(shinythemes)

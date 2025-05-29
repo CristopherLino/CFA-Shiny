@@ -5,6 +5,6 @@ account: linocruz-cfa-app
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 14843470
-bundleId: 10359211
+bundleId: 10359347
 url: https://linocruz-cfa-app.shinyapps.io/cfa_shiny/
 version: 1
