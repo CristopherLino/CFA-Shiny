@@ -310,7 +310,7 @@ ui <- navbarPage(
                    title = "How to Cite CFA-Shiny", width = 12, status = "success", solidHeader = TRUE,
                    HTML('
             <ul>
-              <li>Lino-Cruz, C. (2025). <em>CFA-Shiny: Aplicación interactiva en R para Análisis Factorial Confirmatorio</em> [Software]. GitHub. 
+              <li>Lino-Cruz, C. & Ventura-León, J. (2025). <em>CFA-Shiny: Aplicación interactiva en R para Análisis Factorial Confirmatorio</em> [Software]. GitHub. 
       <a href="https://github.com/CristopherLino/CFA-Shiny" target="_blank">https://github.com/CristopherLino/CFA-Shiny</a></li>
             </ul>
             
