@@ -183,7 +183,28 @@ ui <- navbarPage(
                           tableOutput("fitMeasures"),
                           downloadButton("download_fitmeasures", "Download Fit Table")
                  ),
-                 tabPanel("Modification Indices", DTOutput("modIndices"))
+                 tabPanel("Modification Indices", DTOutput("modIndices")),
+                 tabPanel("Bifactor Indices",
+                          fluidPage(
+                            helpText("Se muestran los índices del modelo bifactor si cumple con los criterios: cada ítem carga en un factor general y uno específico."),
+                            textInput("bifactorName", "Nombre del factor general", value = "FG"),
+                            br(),
+                            tabsetPanel(
+                              tabPanel("Índices Globales",
+                                       tableOutput("bifactorIndices")
+                              ),
+                              tabPanel("Nivel de Factores",
+                                       tableOutput("bifactorFactors")
+                              ),
+                              tabPanel("Nivel de Ítems",
+                                       tableOutput("bifactorItems")
+                              ),
+                              tabPanel("Guía de interpretación",
+                                       uiOutput("bifactorPuntosCorte")  # NUEVO
+                              )
+                            )
+                          )
+                 )
                )
              )
            )
@@ -218,28 +239,8 @@ ui <- navbarPage(
            tabsetPanel(
              tabPanel("Omega", 
                       tableOutput("omegaTable")
-             ),
-             tabPanel("Bifactor Indices",
-                      fluidPage(
-                        helpText("Se muestran los índices del modelo bifactor si cumple con los criterios: cada ítem carga en un factor general y uno específico."),
-                        textInput("bifactorName", "Nombre del factor general", value = "FG"),
-                        br(),
-                        tabsetPanel(
-                          tabPanel("Índices Globales",
-                                   tableOutput("bifactorIndices")
-                          ),
-                          tabPanel("Nivel de Factores",
-                                   tableOutput("bifactorFactors")
-                          ),
-                          tabPanel("Nivel de Ítems",
-                                   tableOutput("bifactorItems")
-                          ),
-                          tabPanel("Guía de interpretación",
-                                   uiOutput("bifactorPuntosCorte")  # NUEVO
-                          )
-                        )
-                      )
              )
+             
            )
   ),
   
@@ -772,7 +773,7 @@ server <- function(input, output, session) {
                    tags$tr(tags$td("Modelo"), tags$td("OmegaH (FG)"), tags$td("Confiabilidad jerárquica del factor general"), tags$td("≥ .75 – .80")),
                    
                    # Nivel del factor
-                   tags$tr(tags$td("Factor"), tags$td("OmegaH"), tags$td("Confiabilidad jerárquica por factor específico"), tags$td("≥ .75")),
+                   tags$tr(tags$td("Factor"), tags$td("OmegaH"), tags$td("Confiabilidad jerárquica por factor específico"), tags$td("≥ .30")),
                    tags$tr(tags$td("Factor"), tags$td("H"), tags$td("Replicabilidad de las puntuaciones del factor"), tags$td("≥ .70")),
                    
                    # Nivel del ítem
